@@ -1158,6 +1158,10 @@
             // New state for pre-filling booking form (Partial sessions)
             const [bookingDefaults, setBookingDefaults] = useState(null);
 
+            // New state for Client Search
+            const [clientSearchTerm, setClientSearchTerm] = useState('');
+            const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+
             const [receiptData, setReceiptData] = useState(null);
             const [viewMode, setViewMode] = useState('list'); 
             const [filterArtist, setFilterArtist] = useState('All');
@@ -1179,6 +1183,12 @@
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 
+                const clientId = parseInt(formData.get('clientId'));
+                if (!clientId || isNaN(clientId)) {
+                    alert("Please select a valid client from the search list.");
+                    return;
+                }
+
                 const newDate = formData.get('date');
                 const newTime = formData.get('time');
 
@@ -1187,7 +1197,7 @@
 
                 const newApt = {
                     id: Date.now(),
-                    clientId: parseInt(formData.get('clientId')),
+                    clientId: clientId,
                     date: newDate,
                     time: newTime,
                     duration: formData.get('duration'),
@@ -1263,6 +1273,7 @@
                     // 2. Prepare Booking Form for next session
                     const client = data.clients.find(c => c.id === apt.clientId);
                     setSelectedClientForBooking(client);
+                    setClientSearchTerm(client ? client.name : ''); // Pre-fill search
                     setBookingDefaults({
                         clientId: apt.clientId,
                         artist: apt.artist,
@@ -1276,6 +1287,7 @@
 
             const openBookingModal = () => {
                 setSelectedClientForBooking(null);
+                setClientSearchTerm(''); // Clear search
                 setBookingDefaults(null);
                 setIsModalOpen(true);
             };
@@ -1401,18 +1413,45 @@
                                 </div>
                                 <form onSubmit={handleSaveAppointment} className="p-6 space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="col-span-1">
+                                        <div className="col-span-1 relative">
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Client</label>
-                                            <select 
-                                                required 
-                                                name="clientId" 
-                                                defaultValue={bookingDefaults?.clientId || ''}
-                                                onChange={(e) => setSelectedClientForBooking(data.clients.find(c => c.id == e.target.value))}
+                                            <input type="hidden" name="clientId" value={selectedClientForBooking?.id || ''} />
+                                            <input 
+                                                type="text" 
+                                                required
+                                                placeholder="Search Client..." 
                                                 className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm"
-                                            >
-                                                <option value="">Select Client</option>
-                                                {data.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                            </select>
+                                                value={clientSearchTerm}
+                                                onChange={(e) => {
+                                                    setClientSearchTerm(e.target.value);
+                                                    setIsClientDropdownOpen(true);
+                                                    if (selectedClientForBooking && e.target.value !== selectedClientForBooking.name) {
+                                                        setSelectedClientForBooking(null);
+                                                    }
+                                                }}
+                                                onFocus={() => setIsClientDropdownOpen(true)}
+                                                onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
+                                            />
+                                            {isClientDropdownOpen && (
+                                                <div className="absolute z-20 w-full bg-slate-800 border border-slate-700 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-xl">
+                                                    {data.clients.filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase())).map(c => (
+                                                        <div 
+                                                            key={c.id} 
+                                                            className="p-2 hover:bg-slate-700 cursor-pointer text-sm text-slate-200"
+                                                            onMouseDown={() => {
+                                                                setSelectedClientForBooking(c);
+                                                                setClientSearchTerm(c.name);
+                                                                setIsClientDropdownOpen(false);
+                                                            }}
+                                                        >
+                                                            {c.name}
+                                                        </div>
+                                                    ))}
+                                                    {data.clients.filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase())).length === 0 && (
+                                                        <div className="p-2 text-slate-500 text-sm">No clients found</div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="col-span-1">
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Artist</label>
