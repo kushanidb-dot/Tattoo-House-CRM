@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>InkFlow CRM v6 | Workflow & Retention</title>
     
     <!-- Tailwind CSS -->
@@ -15,8 +15,8 @@
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Lucide Icons (UMD build for browser) -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
@@ -26,6 +26,7 @@
             font-family: 'Inter', sans-serif;
             background-color: #0f172a; /* Slate 900 */
             color: #e2e8f0; /* Slate 200 */
+            -webkit-tap-highlight-color: transparent;
         }
         h1, h2, h3, h4, .brand-font {
             font-family: 'Cinzel', serif;
@@ -33,6 +34,7 @@
         /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
+            height: 8px;
         }
         ::-webkit-scrollbar-track {
             background: #1e293b; 
@@ -53,6 +55,7 @@
             background: #fff;
             border-radius: 0.5rem;
             cursor: crosshair;
+            touch-action: none; /* Prevents scrolling while signing */
         }
 
         /* Print Styles for Receipt */
@@ -209,7 +212,7 @@
         );
 
         const Button = ({ children, onClick, variant = 'primary', className = "", type="button", title="" }) => {
-            const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 justify-center";
+            const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 justify-center touch-manipulation";
             const variants = {
                 primary: "bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/20",
                 secondary: "bg-slate-700 hover:bg-slate-600 text-slate-200",
@@ -269,16 +272,16 @@
 
             return (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-                        <div className="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <div className="bg-slate-900 border border-slate-700 w-[95%] md:w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
                             <h3 className="text-lg font-bold text-white flex items-center gap-2"><Icon name="message-circle" size={18} className="text-green-500"/> Preview Message</h3>
                             <button onClick={onClose} className="text-slate-500 hover:text-white"><Icon name="x" size={20} /></button>
                         </div>
-                        <div className="p-4">
+                        <div className="p-4 overflow-y-auto">
                             <label className="block text-xs font-medium text-slate-400 mb-2">Edit content before sending:</label>
                             <textarea
                                 rows="8"
-                                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none text-sm"
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm"
                                 value={text}
                                 onChange={(e) => setText(e.target.value)}
                             ></textarea>
@@ -301,6 +304,10 @@
                 if (isOpen && canvasRef.current) {
                     const canvas = canvasRef.current;
                     const ctx = canvas.getContext('2d');
+                    // Set internal resolution to match display size for crispness
+                    const rect = canvas.getBoundingClientRect();
+                    // Optional: handle HighDPI if needed, but simple scaling is enough for signature
+                    // Reset canvas
                     ctx.lineWidth = 2;
                     ctx.lineCap = 'round';
                     ctx.strokeStyle = '#000';
@@ -308,12 +315,31 @@
                 }
             }, [isOpen]);
 
+            const getCoordinates = (e) => {
+                const canvas = canvasRef.current;
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                let clientX, clientY;
+                if (e.touches) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                return {
+                    x: (clientX - rect.left) * scaleX,
+                    y: (clientY - rect.top) * scaleY
+                };
+            };
+
             const startDrawing = (e) => {
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
-                const rect = canvas.getBoundingClientRect();
-                const x = (e.clientX || e.touches[0].clientX) - rect.left;
-                const y = (e.clientY || e.touches[0].clientY) - rect.top;
+                const { x, y } = getCoordinates(e);
                 ctx.beginPath();
                 ctx.moveTo(x, y);
                 setIsDrawing(true);
@@ -323,9 +349,7 @@
                 if (!isDrawing) return;
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
-                const rect = canvas.getBoundingClientRect();
-                const x = (e.clientX || e.touches[0].clientX) - rect.left;
-                const y = (e.clientY || e.touches[0].clientY) - rect.top;
+                const { x, y } = getCoordinates(e);
                 ctx.lineTo(x, y);
                 ctx.stroke();
             };
@@ -344,7 +368,7 @@
 
             return (
                 <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-                    <div className="bg-white text-black w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="bg-white text-black w-[95%] md:w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
                             <h3 className="text-xl font-bold">Release & Waiver of Liability</h3>
                             <button onClick={onClose} className="text-gray-500 hover:text-black"><Icon name="x" /></button>
@@ -360,7 +384,20 @@
                             <div className="mt-6">
                                 <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Client Signature</label>
                                 <div className="border-2 border-dashed border-gray-400 rounded bg-gray-50">
-                                    <canvas ref={canvasRef} width={500} height={150} className="w-full touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+                                    {/* Responsive canvas: visual width handled by CSS w-full, internal resolution kept high */}
+                                    <canvas 
+                                        ref={canvasRef} 
+                                        width={500} 
+                                        height={150} 
+                                        className="w-full h-auto signature-pad touch-none" 
+                                        onMouseDown={startDrawing} 
+                                        onMouseMove={draw} 
+                                        onMouseUp={stopDrawing} 
+                                        onMouseLeave={stopDrawing} 
+                                        onTouchStart={startDrawing} 
+                                        onTouchMove={draw} 
+                                        onTouchEnd={stopDrawing} 
+                                    />
                                 </div>
                                 <p className="text-xs text-gray-400 mt-1">Sign above using your mouse or finger.</p>
                             </div>
@@ -385,8 +422,8 @@
 
             return (
                 <div id="receipt-modal" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-white text-black w-full max-w-md shadow-2xl overflow-hidden relative">
-                        <div className="p-8">
+                    <div className="bg-white text-black w-[95%] md:w-full max-w-md shadow-2xl overflow-hidden relative rounded-lg">
+                        <div className="p-8 max-h-[90vh] overflow-y-auto">
                             <div className="text-center mb-6">
                                 {settings.logoUrl && <img src={settings.logoUrl} alt="Logo" className="h-20 mx-auto mb-2 object-contain" />}
                                 <h1 className="text-2xl font-bold uppercase tracking-widest">{settings.shopName}</h1>
@@ -441,8 +478,8 @@
 
             return (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-                        <div className="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <div className="bg-slate-900 border border-slate-700 w-[95%] md:w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                        <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
                             <div>
                                 <h3 className="text-xl font-bold text-white flex items-center gap-2">
                                     <Icon name="history" size={20} className="text-blue-500"/> Client History
@@ -455,38 +492,40 @@
                             {sortedApts.length === 0 ? (
                                 <div className="p-8 text-center text-slate-500">No appointment history found.</div>
                             ) : (
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-800 text-slate-400 sticky top-0">
-                                        <tr>
-                                            <th className="p-4 font-medium">Date</th>
-                                            <th className="p-4 font-medium">Description</th>
-                                            <th className="p-4 font-medium">Artist</th>
-                                            <th className="p-4 font-medium text-right">Price</th>
-                                            <th className="p-4 font-medium text-center">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-800">
-                                        {sortedApts.map(apt => (
-                                            <tr key={apt.id} className="hover:bg-slate-800/50">
-                                                <td className="p-4 whitespace-nowrap">
-                                                    <div className="text-slate-200 font-medium">{apt.date}</div>
-                                                    <div className="text-xs text-slate-500">{apt.time}</div>
-                                                </td>
-                                                <td className="p-4 text-slate-300">
-                                                    {apt.description}
-                                                    {apt.sessionNotes && <div className="text-xs text-slate-500 mt-1 italic">"{apt.sessionNotes}"</div>}
-                                                </td>
-                                                <td className="p-4 text-slate-400">{apt.artist}</td>
-                                                <td className="p-4 text-right font-mono text-slate-300">
-                                                    {formatCurrency(apt.price, currency)}
-                                                </td>
-                                                <td className="p-4 text-center">
-                                                    <Badge status={apt.status} />
-                                                </td>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-slate-800 text-slate-400 sticky top-0">
+                                            <tr>
+                                                <th className="p-4 font-medium">Date</th>
+                                                <th className="p-4 font-medium">Description</th>
+                                                <th className="p-4 font-medium">Artist</th>
+                                                <th className="p-4 font-medium text-right">Price</th>
+                                                <th className="p-4 font-medium text-center">Status</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800">
+                                            {sortedApts.map(apt => (
+                                                <tr key={apt.id} className="hover:bg-slate-800/50">
+                                                    <td className="p-4 whitespace-nowrap">
+                                                        <div className="text-slate-200 font-medium">{apt.date}</div>
+                                                        <div className="text-xs text-slate-500">{apt.time}</div>
+                                                    </td>
+                                                    <td className="p-4 text-slate-300 min-w-[200px]">
+                                                        {apt.description}
+                                                        {apt.sessionNotes && <div className="text-xs text-slate-500 mt-1 italic">"{apt.sessionNotes}"</div>}
+                                                    </td>
+                                                    <td className="p-4 text-slate-400">{apt.artist}</td>
+                                                    <td className="p-4 text-right font-mono text-slate-300">
+                                                        {formatCurrency(apt.price, currency)}
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <Badge status={apt.status} />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
                         </div>
                         <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex justify-end">
@@ -562,7 +601,7 @@
 
             return (
                 <div className="space-y-6 animate-in fade-in duration-500">
-                    <header className="mb-8 flex justify-between items-end">
+                    <header className="mb-8 flex justify-between items-end flex-wrap gap-4">
                         <div>
                             <h2 className="text-3xl font-bold text-slate-100">{settings.shopName} Dashboard</h2>
                             <p className="text-slate-400 mt-1">Overview for {new Date().toLocaleDateString()}</p>
@@ -574,7 +613,7 @@
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                             {stats.lowStock.length > 0 && (
                                 <div className="bg-red-900/20 border border-red-800/50 rounded-lg p-3 flex items-start gap-3">
-                                    <Icon name="alert-triangle" className="text-red-500 mt-1" />
+                                    <Icon name="alert-triangle" className="text-red-500 mt-1 shrink-0" />
                                     <div>
                                         <h4 className="font-bold text-red-400 text-sm">Low Stock Alert</h4>
                                         <ul className="text-xs text-red-200 mt-1 list-disc list-inside">
@@ -585,12 +624,12 @@
                             )}
                             {stats.upcomingBirthdays.length > 0 && (
                                 <div className="bg-purple-900/20 border border-purple-800/50 rounded-lg p-3 flex items-start gap-3">
-                                    <Icon name="cake" className="text-purple-500 mt-1" />
+                                    <Icon name="cake" className="text-purple-500 mt-1 shrink-0" />
                                     <div className="w-full">
                                         <h4 className="font-bold text-purple-400 text-sm">Upcoming Birthdays (14 Days)</h4>
                                         <div className="space-y-2 mt-2">
                                             {stats.upcomingBirthdays.map(c => (
-                                                <div key={c.id} className="flex justify-between items-center text-xs text-purple-200 bg-purple-900/30 p-2 rounded">
+                                                <div key={c.id} className="flex justify-between items-center text-xs text-purple-200 bg-purple-900/30 p-2 rounded flex-wrap gap-2">
                                                     <span>{c.name} ({new Date(c.dob).toLocaleDateString(undefined, {month:'short', day:'numeric'})})</span>
                                                     {c.alreadyWished ? (
                                                         <span className="flex items-center gap-1 text-green-400 font-bold"><Icon name="check" size={12}/> Sent</span>
@@ -643,12 +682,13 @@
                                                     <div className="text-amber-500 font-bold font-mono">{apt.time}</div>
                                                     <div>
                                                         <p className="font-medium text-slate-200">{client?.name || 'Unknown'}</p>
-                                                        <p className="text-xs text-slate-400">{apt.description} • {apt.artist}</p>
+                                                        <p className="text-xs text-slate-400 truncate max-w-[150px] md:max-w-none">{apt.description} • {apt.artist}</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     {apt.waiverSigned && <span title="Waiver Signed" className="text-purple-400"><Icon name="file-check" size={16}/></span>}
-                                                    <Badge status={apt.paymentStatus} />
+                                                    <Badge status={apt.paymentStatus} className="hidden sm:inline-block" />
+                                                    <div className={`w-3 h-3 rounded-full sm:hidden ${apt.paymentStatus === 'Paid in Full' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                                                 </div>
                                             </div>
                                         );
@@ -757,7 +797,7 @@
                 <div className="animate-in fade-in duration-500">
                     <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                         <h2 className="text-3xl font-bold">Client List</h2>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
                              <div className="flex bg-slate-800 rounded-lg border border-slate-700 p-1">
                                 <button onClick={() => setFilterMode('All')} className={`px-3 py-1 text-sm rounded ${filterMode === 'All' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>All</button>
                                 <button onClick={() => setFilterMode('VIP')} className={`px-3 py-1 text-sm rounded ${filterMode === 'VIP' ? 'bg-amber-600 text-white' : 'text-slate-400'}`}>VIPs</button>
@@ -774,7 +814,7 @@
                         <input 
                             type="text"
                             placeholder="Search clients..."
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 focus:border-amber-500 focus:outline-none"
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 focus:border-amber-500 focus:outline-none text-base md:text-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -843,8 +883,8 @@
 
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
-                                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                            <div className="bg-slate-900 border border-slate-700 w-[95%] md:w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+                                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 sticky top-0 z-10">
                                     <h3 className="text-xl font-bold">{editingClient ? 'Edit Client' : 'New Client'}</h3>
                                     <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white"><Icon name="x" /></button>
                                 </div>
@@ -852,26 +892,26 @@
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Full Name</label>
-                                            <input required name="name" defaultValue={editingClient?.name} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                            <input required name="name" defaultValue={editingClient?.name} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-1">DOB</label>
-                                            <input type="date" name="dob" defaultValue={editingClient?.dob} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                            <input type="date" name="dob" defaultValue={editingClient?.dob} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Phone</label>
-                                            <input name="phone" defaultValue={editingClient?.phone} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                            <input name="phone" defaultValue={editingClient?.phone} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Email</label>
-                                            <input type="email" name="email" defaultValue={editingClient?.email} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                            <input type="email" name="email" defaultValue={editingClient?.email} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-400 mb-1">Medical / Notes</label>
-                                        <textarea name="notes" rows="3" defaultValue={editingClient?.notes} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"></textarea>
+                                        <textarea name="notes" rows="3" defaultValue={editingClient?.notes} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm"></textarea>
                                     </div>
                                     <div className="pt-4 flex justify-end gap-3">
                                         <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
@@ -976,7 +1016,7 @@
 
                     {/* Filter Bar */}
                     <Card className="mb-6 flex flex-col md:flex-row gap-4 items-end bg-slate-800/50">
-                        <div className="flex-1">
+                        <div className="flex-1 w-full">
                             <label className="block text-xs font-medium text-slate-400 mb-2">Report Type</label>
                             <div className="flex bg-slate-900 rounded-lg border border-slate-700 p-1 w-fit">
                                 <button onClick={() => setFilterType('month')} className={`px-4 py-2 text-sm rounded ${filterType === 'month' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>Monthly</button>
@@ -985,19 +1025,19 @@
                         </div>
 
                         {filterType === 'month' ? (
-                            <div className="flex-1">
+                            <div className="flex-1 w-full">
                                 <label className="block text-xs font-medium text-slate-400 mb-1">Select Month</label>
-                                <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
+                                <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-base md:text-sm" />
                             </div>
                         ) : (
-                            <div className="flex gap-4 flex-1">
+                            <div className="flex gap-4 flex-1 w-full">
                                 <div className="flex-1">
                                     <label className="block text-xs font-medium text-slate-400 mb-1">Start Date</label>
-                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
+                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-base md:text-sm" />
                                 </div>
                                 <div className="flex-1">
                                     <label className="block text-xs font-medium text-slate-400 mb-1">End Date</label>
-                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
+                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-base md:text-sm" />
                                 </div>
                             </div>
                         )}
@@ -1248,8 +1288,8 @@
                 <div className="animate-in fade-in duration-500">
                     <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                         <h2 className="text-3xl font-bold">Schedule</h2>
-                        <div className="flex gap-2 w-full md:w-auto">
-                            <select onChange={(e) => setFilterArtist(e.target.value)} className="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 text-sm focus:outline-none">
+                        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                            <select onChange={(e) => setFilterArtist(e.target.value)} className="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 text-sm focus:outline-none h-10 flex-1 md:flex-none">
                                 <option value="All">All Artists</option>
                                 {data.settings.artists.map(a => <option key={a} value={a}>{a}</option>)}
                             </select>
@@ -1257,7 +1297,7 @@
                                 <button onClick={() => setViewMode('list')} className={`px-3 py-1 rounded ${viewMode === 'list' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}><Icon name="list" size={16}/></button>
                                 <button onClick={() => setViewMode('grid')} className={`px-3 py-1 rounded ${viewMode === 'grid' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}><Icon name="grid" size={16}/></button>
                             </div>
-                            <Button onClick={openBookingModal}>
+                            <Button onClick={openBookingModal} className="flex-1 md:flex-none">
                                 <Icon name="plus" size={18} /> Book
                             </Button>
                         </div>
@@ -1271,81 +1311,81 @@
                                 const client = data.clients.find(c => c.id == apt.clientId);
                                 return (
                                     <Card key={apt.id} className="flex flex-col md:flex-row gap-4 justify-between items-start">
-                                        <div className="flex gap-4 w-full">
-                                            <div className="flex flex-col items-center justify-center bg-slate-800 rounded-lg p-3 min-w-[80px] border border-slate-700 h-fit">
-                                                <span className="text-xs text-amber-500 font-bold uppercase">{new Date(apt.date).toLocaleString('default', { month: 'short' })}</span>
-                                                <span className="text-2xl font-bold text-white">{new Date(apt.date).getDate()}</span>
-                                                <span className="text-xs text-slate-400">{apt.time}</span>
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h4 className="text-lg font-bold text-white flex items-center gap-2">
-                                                            {client?.name || 'Unknown'} 
-                                                            <Badge status={apt.status} />
-                                                        </h4>
-                                                        <p className="text-slate-400 text-sm">{apt.description} <span className="text-slate-600">•</span> {apt.artist}</p>
-                                                    </div>
-                                                    <div className="flex flex-col items-end gap-1">
-                                                        <Badge status={apt.paymentStatus} />
-                                                        {apt.discountApplied && <span className="text-xs text-green-400 font-bold">{apt.discountRate}% Off Applied</span>}
-                                                        {apt.waiverSigned ? <Badge status="Signed" /> : null}
-                                                    </div>
+                                            <div className="flex gap-4 w-full">
+                                                <div className="flex flex-col items-center justify-center bg-slate-800 rounded-lg p-3 min-w-[80px] border border-slate-700 h-fit">
+                                                    <span className="text-xs text-amber-500 font-bold uppercase">{new Date(apt.date).toLocaleString('default', { month: 'short' })}</span>
+                                                    <span className="text-2xl font-bold text-white">{new Date(apt.date).getDate()}</span>
+                                                    <span className="text-xs text-slate-400">{apt.time}</span>
                                                 </div>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h4 className="text-lg font-bold text-white flex items-center gap-2">
+                                                                {client?.name || 'Unknown'} 
+                                                                <Badge status={apt.status} />
+                                                            </h4>
+                                                            <p className="text-slate-400 text-sm">{apt.description} <span className="text-slate-600">•</span> {apt.artist}</p>
+                                                        </div>
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <Badge status={apt.paymentStatus} />
+                                                            {apt.discountApplied && <span className="text-xs text-green-400 font-bold">{apt.discountRate}% Off Applied</span>}
+                                                            {apt.waiverSigned ? <Badge status="Signed" /> : null}
+                                                        </div>
+                                                    </div>
 
-                                                <div className="flex flex-wrap gap-3 mt-2 text-xs text-slate-500">
-                                                    <span className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded"><Icon name="clock" size={12} /> {apt.duration}h</span>
-                                                    <span className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded"><Icon name="banknote" size={12} /> {formatCurrency(apt.price, data.settings.currency)}</span>
-                                                    {apt.refLink && <a href={apt.refLink} target="_blank" className="flex items-center gap-1 text-blue-400 hover:underline"><Icon name="link" size={12} /> Reference</a>}
-                                                </div>
+                                                    <div className="flex flex-wrap gap-3 mt-2 text-xs text-slate-500">
+                                                        <span className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded"><Icon name="clock" size={12} /> {apt.duration}h</span>
+                                                        <span className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded"><Icon name="banknote" size={12} /> {formatCurrency(apt.price, data.settings.currency)}</span>
+                                                        {apt.refLink && <a href={apt.refLink} target="_blank" className="flex items-center gap-1 text-blue-400 hover:underline"><Icon name="link" size={12} /> Reference</a>}
+                                                    </div>
 
-                                                <div className="mt-3 pt-3 border-t border-slate-800/50 flex flex-wrap gap-2">
-                                                    {!apt.waiverSigned && (
-                                                        <Button variant="ghost" className="text-xs py-1 border border-purple-500/30 text-purple-400 hover:bg-purple-900/20" onClick={() => handleOpenWaiver(apt)}>
-                                                            <Icon name="pen-tool" size={12}/> Waiver
+                                                    <div className="mt-3 pt-3 border-t border-slate-800/50 flex flex-wrap gap-2">
+                                                        {!apt.waiverSigned && (
+                                                            <Button variant="ghost" className="text-xs py-1 border border-purple-500/30 text-purple-400 hover:bg-purple-900/20" onClick={() => handleOpenWaiver(apt)}>
+                                                                <Icon name="pen-tool" size={12}/> Waiver
+                                                            </Button>
+                                                        )}
+                                                        
+                                                        {apt.status === 'Completed' || apt.status === 'Partial' ? (
+                                                            <>
+                                                                <Button variant="ghost" className="text-xs py-1" onClick={() => setReceiptData({ appointment: apt, client })}>Receipt</Button>
+                                                                <Button variant="ghost" className="text-xs py-1 text-emerald-400 hover:text-emerald-300" onClick={() => prepareAftercare(apt)}>Send Aftercare</Button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Button variant="secondary" className="text-xs py-1" onClick={() => updateField(apt.id, 'status', 'Cancelled')}>Cancel</Button>
+                                                                <Button variant="ghost" className="text-xs py-1 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-900/20" onClick={() => handlePartialComplete(apt)}>Partial</Button>
+                                                                <Button variant="success" className="text-xs py-1" onClick={() => updateField(apt.id, 'status', 'Completed')}>Complete</Button>
+                                                            </>
+                                                        )}
+                                                        
+                                                        <select 
+                                                            value={apt.paymentStatus} 
+                                                            onChange={(e) => updateField(apt.id, 'paymentStatus', e.target.value)}
+                                                            className="bg-slate-900 border border-slate-700 text-xs rounded px-2 text-slate-400 focus:outline-none"
+                                                        >
+                                                            <option value="Unpaid">Unpaid</option>
+                                                            <option value="Deposit Only">Deposit Only</option>
+                                                            <option value="Paid in Full">Paid in Full</option>
+                                                        </select>
+
+                                                        <Button variant="ghost" className="text-xs py-1 text-red-400 hover:text-red-300 hover:bg-red-900/20" onClick={() => deleteAppointment(apt.id)} title="Delete Appointment">
+                                                            <Icon name="trash-2" size={14}/>
                                                         </Button>
-                                                    )}
+                                                    </div>
                                                     
-                                                    {apt.status === 'Completed' || apt.status === 'Partial' ? (
-                                                        <>
-                                                            <Button variant="ghost" className="text-xs py-1" onClick={() => setReceiptData({ appointment: apt, client })}>Receipt</Button>
-                                                            <Button variant="ghost" className="text-xs py-1 text-emerald-400 hover:text-emerald-300" onClick={() => prepareAftercare(apt)}>Send Aftercare</Button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Button variant="secondary" className="text-xs py-1" onClick={() => updateField(apt.id, 'status', 'Cancelled')}>Cancel</Button>
-                                                            <Button variant="ghost" className="text-xs py-1 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-900/20" onClick={() => handlePartialComplete(apt)}>Partial</Button>
-                                                            <Button variant="success" className="text-xs py-1" onClick={() => updateField(apt.id, 'status', 'Completed')}>Complete</Button>
-                                                        </>
-                                                    )}
-                                                    
-                                                    <select 
-                                                        value={apt.paymentStatus} 
-                                                        onChange={(e) => updateField(apt.id, 'paymentStatus', e.target.value)}
-                                                        className="bg-slate-900 border border-slate-700 text-xs rounded px-2 text-slate-400 focus:outline-none"
-                                                    >
-                                                        <option value="Unpaid">Unpaid</option>
-                                                        <option value="Deposit Only">Deposit Only</option>
-                                                        <option value="Paid in Full">Paid in Full</option>
-                                                    </select>
-
-                                                    <Button variant="ghost" className="text-xs py-1 text-red-400 hover:text-red-300 hover:bg-red-900/20" onClick={() => deleteAppointment(apt.id)} title="Delete Appointment">
-                                                        <Icon name="trash-2" size={14}/>
-                                                    </Button>
-                                                </div>
-                                                
-                                                {/* Session Notes */}
-                                                <div className="mt-2">
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="Add session note..." 
-                                                        className="w-full bg-transparent border-b border-slate-800 text-xs py-1 text-slate-400 focus:border-amber-500 focus:outline-none focus:text-slate-200 transition-colors"
-                                                        defaultValue={apt.sessionNotes}
-                                                        onBlur={(e) => updateField(apt.id, 'sessionNotes', e.target.value)}
-                                                    />
+                                                    {/* Session Notes */}
+                                                    <div className="mt-2">
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="Add session note..." 
+                                                            className="w-full bg-transparent border-b border-slate-800 text-xs py-1 text-slate-400 focus:border-amber-500 focus:outline-none focus:text-slate-200 transition-colors text-base md:text-sm"
+                                                            defaultValue={apt.sessionNotes}
+                                                            onBlur={(e) => updateField(apt.id, 'sessionNotes', e.target.value)}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
                                     </Card>
                                 )
                             })}
@@ -1354,7 +1394,7 @@
 
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+                            <div className="bg-slate-900 border border-slate-700 w-[95%] md:w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
                                 <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 sticky top-0 z-10">
                                     <h3 className="text-xl font-bold">{bookingDefaults ? 'Schedule Follow-up' : 'Book Appointment'}</h3>
                                     <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white"><Icon name="x" /></button>
@@ -1368,7 +1408,7 @@
                                                 name="clientId" 
                                                 defaultValue={bookingDefaults?.clientId || ''}
                                                 onChange={(e) => setSelectedClientForBooking(data.clients.find(c => c.id == e.target.value))}
-                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none"
+                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm"
                                             >
                                                 <option value="">Select Client</option>
                                                 {data.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -1376,7 +1416,7 @@
                                         </div>
                                         <div className="col-span-1">
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Artist</label>
-                                            <select required name="artist" defaultValue={bookingDefaults?.artist || ''} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none">
+                                            <select required name="artist" defaultValue={bookingDefaults?.artist || ''} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm">
                                                 {data.settings.artists.map(a => <option key={a} value={a}>{a}</option>)}
                                             </select>
                                         </div>
@@ -1412,7 +1452,7 @@
                                                             type="number" 
                                                             value={discountRate}
                                                             onChange={(e) => setDiscountRate(e.target.value)}
-                                                            className="w-12 bg-slate-900 border border-slate-600 rounded px-1 py-0.5 text-right text-sm text-white focus:border-amber-500 focus:outline-none"
+                                                            className="w-12 bg-slate-900 border border-slate-600 rounded px-1 py-0.5 text-right text-sm text-white focus:border-amber-500 focus:outline-none text-base md:text-sm"
                                                         />
                                                         <span className="text-sm text-slate-400">%</span>
                                                     </div>
@@ -1424,38 +1464,38 @@
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Date</label>
-                                            <input required type="date" name="date" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                            <input required type="date" name="date" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Time</label>
-                                            <input required type="time" name="time" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                            <input required type="time" name="time" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-400 mb-1">Description</label>
-                                        <input required name="description" defaultValue={bookingDefaults?.description || ''} placeholder="e.g. Wolf chest piece" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                        <input required name="description" defaultValue={bookingDefaults?.description || ''} placeholder="e.g. Wolf chest piece" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-400 mb-1">Reference Link (Google Drive/Pinterest)</label>
-                                        <input name="refLink" defaultValue={bookingDefaults?.refLink || ''} placeholder="https://..." className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                        <input name="refLink" defaultValue={bookingDefaults?.refLink || ''} placeholder="https://..." className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                     </div>
                                     <div className="grid grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Duration (h)</label>
-                                            <input type="number" name="duration" defaultValue={bookingDefaults?.duration || 1} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                            <input type="number" name="duration" defaultValue={bookingDefaults?.duration || 1} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Price</label>
-                                            <input type="number" name="price" defaultValue={bookingDefaults?.price || ''} placeholder="0" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                            <input type="number" name="price" defaultValue={bookingDefaults?.price || ''} placeholder="0" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-1">Deposit</label>
-                                            <input type="number" name="deposit" placeholder="0" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none" />
+                                            <input type="number" name="deposit" placeholder="0" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm" />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-400 mb-1">Initial Payment Status</label>
-                                        <select name="paymentStatus" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none">
+                                        <select name="paymentStatus" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white focus:border-amber-500 focus:outline-none text-base md:text-sm">
                                             <option value="Unpaid">Unpaid</option>
                                             <option value="Deposit Only">Deposit Only</option>
                                             <option value="Paid in Full">Paid in Full</option>
@@ -1521,20 +1561,20 @@
                                 <form onSubmit={handleAddExpense} className="space-y-4">
                                     <div>
                                         <label className="block text-xs font-medium text-slate-400 mb-1">Date</label>
-                                        <input required type="date" name="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white" />
+                                        <input required type="date" name="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white text-base md:text-sm" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-slate-400 mb-1">Description</label>
-                                        <input required name="description" placeholder="e.g. Rent, Ink, Electricity" className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white" />
+                                        <input required name="description" placeholder="e.g. Rent, Ink, Electricity" className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white text-base md:text-sm" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div>
                                             <label className="block text-xs font-medium text-slate-400 mb-1">Amount</label>
-                                            <input required type="number" name="amount" placeholder="0.00" className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white" />
+                                            <input required type="number" name="amount" placeholder="0.00" className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white text-base md:text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-slate-400 mb-1">Category</label>
-                                            <select name="category" className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white">
+                                            <select name="category" className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white text-base md:text-sm">
                                                 <option>Supplies</option>
                                                 <option>Rent/Utilities</option>
                                                 <option>Marketing</option>
@@ -1615,17 +1655,19 @@
                         <form onSubmit={addItem} className="flex flex-col md:flex-row gap-4 items-end">
                             <div className="flex-1 w-full">
                                 <label className="block text-xs font-medium text-slate-400 mb-1">Item Name</label>
-                                <input required value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} placeholder="e.g. 9RL Needles" className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
+                                <input required value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} placeholder="e.g. 9RL Needles" className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-base md:text-sm" />
                             </div>
-                            <div className="w-24">
-                                <label className="block text-xs font-medium text-slate-400 mb-1">Qty</label>
-                                <input type="number" value={newItem.quantity} onChange={e => setNewItem({...newItem, quantity: parseInt(e.target.value)})} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
+                            <div className="flex gap-4 w-full md:w-auto">
+                                <div className="w-24 flex-1 md:flex-none">
+                                    <label className="block text-xs font-medium text-slate-400 mb-1">Qty</label>
+                                    <input type="number" value={newItem.quantity} onChange={e => setNewItem({...newItem, quantity: parseInt(e.target.value)})} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-base md:text-sm" />
+                                </div>
+                                <div className="w-24 flex-1 md:flex-none">
+                                    <label className="block text-xs font-medium text-slate-400 mb-1">Low Alert</label>
+                                    <input type="number" value={newItem.threshold} onChange={e => setNewItem({...newItem, threshold: parseInt(e.target.value)})} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white text-base md:text-sm" />
+                                </div>
                             </div>
-                            <div className="w-24">
-                                <label className="block text-xs font-medium text-slate-400 mb-1">Low Alert</label>
-                                <input type="number" value={newItem.threshold} onChange={e => setNewItem({...newItem, threshold: parseInt(e.target.value)})} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
-                            </div>
-                            <Button type="submit">Add Item</Button>
+                            <Button type="submit" className="w-full md:w-auto">Add Item</Button>
                         </form>
                     </Card>
 
@@ -1733,9 +1775,9 @@
                 <div className="animate-in fade-in duration-500 max-w-2xl mx-auto pb-10">
                     <h2 className="text-3xl font-bold mb-6">Shop Settings</h2>
                     
-                    <div className="mb-6 p-4 bg-slate-800 rounded-lg flex justify-between items-center border border-slate-700">
-                        <div><h4 className="font-bold">Data Management</h4><p className="text-xs text-slate-400">Backup or restore your studio data.</p></div>
-                        <div className="flex gap-2">
+                    <div className="mb-6 p-4 bg-slate-800 rounded-lg flex flex-col md:flex-row justify-between items-center border border-slate-700 gap-4">
+                        <div className="text-center md:text-left"><h4 className="font-bold">Data Management</h4><p className="text-xs text-slate-400">Backup or restore your studio data.</p></div>
+                        <div className="flex gap-2 w-full md:w-auto justify-center">
                             <Button variant="secondary" onClick={() => document.getElementById('importInput').click()}><Icon name="upload" size={16} /> Import</Button>
                             <input id="importInput" type="file" accept=".json" className="hidden" onChange={importData} />
                             <Button onClick={exportData}><Icon name="download" size={16} /> Export</Button>
@@ -1745,25 +1787,25 @@
                     <Card>
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div><label className="block text-sm font-medium text-slate-400 mb-1">Shop Name</label><input required name="shopName" defaultValue={data.settings.shopName} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white" /></div>
+                                <div><label className="block text-sm font-medium text-slate-400 mb-1">Shop Name</label><input required name="shopName" defaultValue={data.settings.shopName} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white text-base md:text-sm" /></div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-400 mb-1">Currency</label>
-                                    <select name="currency" defaultValue={data.settings.currency} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white">
+                                    <select name="currency" defaultValue={data.settings.currency} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white text-base md:text-sm">
                                         <option value="LKR">LKR (Rs)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option>
                                     </select>
                                 </div>
                             </div>
-                            <div><label className="block text-sm font-medium text-slate-400 mb-1">Address</label><textarea name="address" rows="2" defaultValue={data.settings.address} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"></textarea></div>
+                            <div><label className="block text-sm font-medium text-slate-400 mb-1">Address</label><textarea name="address" rows="2" defaultValue={data.settings.address} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white text-base md:text-sm"></textarea></div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div><label className="block text-sm font-medium text-slate-400 mb-1">Phone</label><input name="contact" defaultValue={data.settings.contact} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white" /></div>
-                                <div><label className="block text-sm font-medium text-slate-400 mb-1">Social</label><input name="instagram" defaultValue={data.settings.instagram} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white" /></div>
+                                <div><label className="block text-sm font-medium text-slate-400 mb-1">Phone</label><input name="contact" defaultValue={data.settings.contact} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white text-base md:text-sm" /></div>
+                                <div><label className="block text-sm font-medium text-slate-400 mb-1">Social</label><input name="instagram" defaultValue={data.settings.instagram} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white text-base md:text-sm" /></div>
                             </div>
                             
                             <div className="border-t border-slate-700 pt-6">
                                 <h3 className="text-lg font-bold mb-4">Studio Configuration</h3>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-400 mb-1">Artists (comma separated)</label>
-                                    <input name="artists" defaultValue={data.settings.artists.join(', ')} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white" />
+                                    <input name="artists" defaultValue={data.settings.artists.join(', ')} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white text-base md:text-sm" />
                                 </div>
                                 <div className="mt-4">
                                     <label className="block text-sm font-medium text-slate-400 mb-1">Aftercare Instructions (WhatsApp Template)</label>
@@ -1787,7 +1829,7 @@
 
                     <div className="mt-8 p-6 border border-red-900/50 rounded-xl bg-red-900/10">
                         <div className="flex items-start gap-4">
-                            <div className="p-3 bg-red-900/20 rounded-lg text-red-500">
+                            <div className="p-3 bg-red-900/20 rounded-lg text-red-500 shrink-0">
                                 <Icon name="alert-triangle" size={24} />
                             </div>
                             <div className="flex-1">
@@ -1861,7 +1903,7 @@
                         </nav>
                     </aside>
 
-                    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 z-50 flex justify-around p-4 no-print overflow-x-auto">
+                    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 z-50 flex justify-around p-4 no-print overflow-x-auto safe-area-pb">
                         <button onClick={() => setView('dashboard')} className={view === 'dashboard' ? 'text-amber-500' : 'text-slate-500'}><Icon name="layout-dashboard" /></button>
                         <button onClick={() => setView('schedule')} className={view === 'schedule' ? 'text-amber-500' : 'text-slate-500'}><Icon name="calendar" /></button>
                         <button onClick={() => setView('clients')} className={view === 'clients' ? 'text-amber-500' : 'text-slate-500'}><Icon name="users" /></button>
