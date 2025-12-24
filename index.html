@@ -1903,12 +1903,14 @@
                         </nav>
                     </aside>
 
-                    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 z-50 flex justify-around p-4 no-print overflow-x-auto safe-area-pb">
-                        <button onClick={() => setView('dashboard')} className={view === 'dashboard' ? 'text-amber-500' : 'text-slate-500'}><Icon name="layout-dashboard" /></button>
-                        <button onClick={() => setView('schedule')} className={view === 'schedule' ? 'text-amber-500' : 'text-slate-500'}><Icon name="calendar" /></button>
-                        <button onClick={() => setView('clients')} className={view === 'clients' ? 'text-amber-500' : 'text-slate-500'}><Icon name="users" /></button>
-                        <button onClick={() => setView('expenses')} className={view === 'expenses' ? 'text-amber-500' : 'text-slate-500'}><Icon name="receipt" /></button>
-                        <button onClick={() => setView('settings')} className={view === 'settings' ? 'text-amber-500' : 'text-slate-500'}><Icon name="settings" /></button>
+                    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 z-50 flex items-center gap-8 px-6 py-4 no-print overflow-x-auto safe-area-pb">
+                        <button onClick={() => setView('dashboard')} className={`shrink-0 ${view === 'dashboard' ? 'text-amber-500' : 'text-slate-500'}`}><Icon name="layout-dashboard" /></button>
+                        <button onClick={() => setView('schedule')} className={`shrink-0 ${view === 'schedule' ? 'text-amber-500' : 'text-slate-500'}`}><Icon name="calendar" /></button>
+                        <button onClick={() => setView('clients')} className={`shrink-0 ${view === 'clients' ? 'text-amber-500' : 'text-slate-500'}`}><Icon name="users" /></button>
+                        <button onClick={() => setView('reports')} className={`shrink-0 ${view === 'reports' ? 'text-amber-500' : 'text-slate-500'}`}><Icon name="bar-chart" /></button>
+                        <button onClick={() => setView('expenses')} className={`shrink-0 ${view === 'expenses' ? 'text-amber-500' : 'text-slate-500'}`}><Icon name="receipt" /></button>
+                        <button onClick={() => setView('inventory')} className={`shrink-0 ${view === 'inventory' ? 'text-amber-500' : 'text-slate-500'}`}><Icon name="package" /></button>
+                        <button onClick={() => setView('settings')} className={`shrink-0 ${view === 'settings' ? 'text-amber-500' : 'text-slate-500'}`}><Icon name="settings" /></button>
                     </div>
 
                     <main className="flex-1 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto min-h-screen no-print">
